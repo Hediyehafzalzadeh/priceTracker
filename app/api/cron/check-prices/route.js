@@ -1,7 +1,6 @@
 import { sendPriceDropEmail } from "@/lib/email";
 import { scrapeProduct } from "@/lib/firecrawl";
 import { createClient } from "@supabase/supabase-js";
-import { Currency } from "lucide-react";
 import { NextResponse } from "next/server";
 
 
@@ -17,7 +16,7 @@ export async function GET() {
 export async function POST(request) {
     try {
         const authHeader = request.headers.get("Authorization");
-        const cronSecret = process.env.CRONE_SECRET;
+        const cronSecret = process.env.CRON_SECRET;
         if(!cronSecret || authHeader !== `Bearer ${cronSecret}`){
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -30,10 +29,9 @@ export async function POST(request) {
         const {data : products , error : productsError} = await supabase
         .from("products").select("*") ;
 
-        if(productsError){
-            console.error("Error fetching products:", productsError);
-            
-        }
+        if(productsError) throw productsError ;
+        console.log(`Found ${products.length} products to check`);
+
 
         const result = {
             total : products.length,
@@ -47,36 +45,39 @@ export async function POST(request) {
             try {
                 const productData = await scrapeProduct(product.url) ;
                 if(!productData.currentPrice){
-                    result.failed++ ; 
+                    result.failed++ ;
+                    continue; 
                 }
+                const oldPrice = parseFloat(product.current_price);
+                const newPrice = parseFloat(productData.currentPrice);
+                
 
-                const newPrice = parseFloat(productData.currentPrice) ;
-                const oldPrice = parseFloat(product.current_price) ;
 
                 await supabase.from("products").update({
                     current_price : newPrice ,
-                    Currency : productData.currency || product.currency ,
-                    name : productData.name || product.name ,
-                    image_url : productData.imageUrl || product.image_url ,
+                    currency : productData.currencyCode || product.currency ,
+                    name : productData.productName || product.name ,
+                    image_url : productData.productImageUrl || product.image_url ,
                     updated_at : new Date().toISOString() ,
                 }).eq("id" , product.id) ;
 
 
-                if(newPrice !== oldPrice){
+                if(oldPrice !== newPrice){
                     await supabase.from("price_history").insert({
                         product_id : product.id ,
                         price : newPrice ,
-                        currency : productData.currency || product.currency ,
+                        currency : productData.currencyCode || product.currency ,
                     }) ;
                     result.priceChanges++ ;
-                }
-
-                const {
+                    
+                    
+                    if(newPrice < oldPrice){
+                    const {
                     data :{user} ,
 
                 } = await supabase.auth.admin.getUserById(product.user_id) ;
-
                 if(user?.email){
+                    console.log("======================>",user.email);
                     const emailResult = await sendPriceDropEmail(
                         user.email ,
                         product , 
@@ -88,18 +89,22 @@ export async function POST(request) {
                         }
                     
                 }
+                }
+                }
 
-
-
-                
+                result.updated++ ;
+           
             }catch (error) { 
                 console.error(`Error processing product ${product.id}:`, error);
                 result.failed++;
              }  
         }
 
-        return NextResponse.json({ message: "Price check completed", result });
-
+        return NextResponse.json({
+      success: true,
+      message: "Price check completed",
+      result,
+    });
 
     }catch (error) {
         console.error("Error in cron job:", error);
@@ -107,3 +112,5 @@ export async function POST(request) {
              error: "An error occurred while checking prices." }, { status: 500 });
     }
 }
+
+// curl -X POST http://localhost:3000/api/cron/check-prices -H "Authorization: Bearer 2e9cc3fb21204622c3301bd9cd2f6ebec83ff8e67cf42f5aeb49fd87d995d0be"
