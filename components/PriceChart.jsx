@@ -1,71 +1,82 @@
-"use client"
+"use client";
 
-import React, { useEffect, useState } from 'react'
-import { CartesianGrid, Legend, Line, LineChart, Tooltip, XAxis, YAxis } from 'recharts';
-import { RechartsDevtools } from '@recharts/devtools';
-import { getPriceHistory } from '@/app/actions';
+import React, { useEffect, useState } from "react";
+import {
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { RechartsDevtools } from "@recharts/devtools";
+import { getPriceHistory } from "@/app/actions";
 const PriceChart = ({ productId }) => {
-    const [data , setData] = useState([]);
-    const [loading , setLoading] = useState(true);
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    async function fetchData() {
+      const priceHistory = await getPriceHistory(productId);
 
-    useEffect(()=> {
-          async function fetchData() { 
-            
-          const priceHistory = await getPriceHistory(productId);
-           setLoading(false);
-            setData(priceHistory.map(item => ({
-                date : new Date(item.checked_at).toLocaleDateString() , 
-                price : item.price , 
-            }))) ;
-          }
+      setData(
+        priceHistory.map((item) => ({
+          date: new Date(item.checked_at).toLocaleDateString(),
+          price: parseFloat(item.price),
+        })),
+      );
+      setLoading(false);
+    }
 
-        fetchData();
-
-    }, [productId])
-    
-  
+    fetchData();
+  }, [productId]);
 
   return (
-    <div>
-      <LineChart
-      style={{ width: '100%', maxWidth: '700px', height: '100%', maxHeight: '70vh', aspectRatio: 1.618 }}
+    <LineChart
+      className=""
+      style={{
+        width: "100%",
+        maxWidth: "700px",
+        height: "100%",
+        maxHeight: "70vh",
+        aspectRatio: 1.618,
+      }}
       responsive
       data={data}
       margin={{
         top: 5,
-        right: 0,
+        right: 5,
         left: 0,
         bottom: 5,
       }}
     >
       <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-3)" />
-      <XAxis dataKey="date" stroke="var(--color-text-3)" />
-      <YAxis dataKey="price" width="auto" stroke="var(--color-text-3)" />
+      <XAxis dataKey="date" stroke="#8f8f8f" />
+      <YAxis dataKey="price" width={30} stroke="#8f8f8f" />
       <Tooltip
         cursor={{
-          stroke: 'var(--color-border-2)',
+          stroke: "var(--color-border-2)",
         }}
         contentStyle={{
-          backgroundColor: 'var(--color-surface-raised)',
-          borderColor: 'var(--color-border-2)',
+          backgroundColor: "#fff",
+          borderColor: "var(--color-border-2)",
         }}
       />
       <Legend />
-    
+
       <Line
         type="monotone"
         dataKey="price"
-        stroke="var(--color-chart-2)"
+        stroke="#7c3aed"
         dot={{
-          fill: 'var(--color-surface-base)',
+          fill: "#fff",
         }}
-        activeDot={{ stroke: 'var(--color-surface-base)' }}
+        activeDot={{ stroke: "#fff", fill: "#7c3aed" }}
       />
       <RechartsDevtools />
     </LineChart>
-    </div>
-  )
-}
+  );
+};
 
 export default PriceChart;

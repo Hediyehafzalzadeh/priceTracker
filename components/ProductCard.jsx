@@ -85,11 +85,9 @@ const ProductCard = ({ product }) =>{
         </div>
       </CardContent>
       {showChart && (
-      <CardFooter className="pt-0">
+      <CardFooter className="pt-4">
         <PriceChart productId={product.id} />
 
-
-        
       </CardFooter>)}
     </Card>
 
